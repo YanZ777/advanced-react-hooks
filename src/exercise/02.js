@@ -31,13 +31,32 @@ function genericAsyncReducer(state, action) {
   }
 }
 
+function useSafeDispatch(dispatch) {
+   const mountedRef = React.useRef(false)
+
+   React.useEffect(() => {
+      mountedRef.current = true
+      return () => {
+         mountedRef.current = false
+      }
+   }, []);
+   
+   return React.useCallback(( ...args) => {
+      if (mountedRef.current) {
+         dispatch(...args)
+      }
+   }, [dispatch])
+}
+
 function useAsync(initialState) {
-   const [state, dispatch] = React.useReducer(genericAsyncReducer, {
+   const [state, unsafeDispatch] = React.useReducer(genericAsyncReducer, {
       status: 'idle',
       data: null,
       error: null,
       ...initialState,
    });
+
+   const dispatch = useSafeDispatch(unsafeDispatch)
 
    const asyncCallback = React.useCallback((functionToWrap) => {
       dispatch({type: 'pending'})
@@ -49,7 +68,7 @@ function useAsync(initialState) {
             dispatch({type: 'rejected', error})
          }
       )
-   }, []);
+   }, [dispatch]);
    /*
    React.useEffect(() => {
       // 💰 this first early-exit bit is a little tricky, so let me give you a hint:
