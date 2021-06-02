@@ -31,7 +31,7 @@ function genericAsyncReducer(state, action) {
   }
 }
 
-function useAsync(asyncCall, initialState) {
+function useAsync(initialState) {
    const [state, dispatch] = React.useReducer(genericAsyncReducer, {
       status: 'idle',
       data: null,
@@ -39,6 +39,18 @@ function useAsync(asyncCall, initialState) {
       ...initialState,
    });
 
+   const asyncCallback = React.useCallback((functionToWrap) => {
+      dispatch({type: 'pending'})
+      functionToWrap.then(
+         data => {
+            dispatch({type: 'resolved', data})
+         },
+         error => {
+            dispatch({type: 'rejected', error})
+         }
+      )
+   }, []);
+   /*
    React.useEffect(() => {
       // 💰 this first early-exit bit is a little tricky, so let me give you a hint:
       // const promise = asyncCallback()
@@ -46,7 +58,7 @@ function useAsync(asyncCall, initialState) {
       //   return
       // }
       // then you can dispatch and handle the promise etc...
-      const promise = asyncCall()
+      const promise = asyncCallback()
       if (!promise) {
         return
       }
@@ -63,24 +75,38 @@ function useAsync(asyncCall, initialState) {
       // 🐨 because of limitations with ESLint, you'll need to ignore
       // the react-hooks/exhaustive-deps rule. We'll fix this in an extra credit.
     }, [asyncCall])
+    */
 
-   return state;
+   return {...state, run: asyncCallback};
 }
 
 function PokemonInfo({pokemonName}) {
-   const asyncCallback = React.useCallback(() => {
-      if (!pokemonName) {
-        return
-      }
-      return fetchPokemon(pokemonName)
-   }, [pokemonName]);
-
   // 🐨 move both the useReducer and useEffect hooks to a custom hook called useAsync
   // here's how you use it:
-  const state = useAsync(
-    asyncCallback,
-    {status: pokemonName ? 'pending' : 'idle'},
-  )
+  const {data, status, error, run} = useAsync({
+      status: pokemonName ? 'pending' : 'idle',
+   })
+   
+   React.useEffect(() => {
+      if (!pokemonName) {
+         return
+      }
+      run(fetchPokemon(pokemonName))
+   }, [pokemonName, run])
+
+  // Pre Extra Credit 2
+//   const asyncCallback = React.useCallback(() => {
+//    if (!pokemonName) {
+//      return
+//    }
+//    return fetchPokemon(pokemonName)
+// }, [pokemonName]);
+//   const state = useAsync(
+//     asyncCallback,
+//     {status: pokemonName ? 'pending' : 'idle'},
+//   )\
+
+   // Pre Extra Credit 1
   // 🐨 so your job is to create a useAsync function that makes this work.
 //   const [state, dispatch] = React.useReducer(pokemonInfoReducer, {
 //     status: pokemonName ? 'pending' : 'idle',
@@ -90,7 +116,7 @@ function PokemonInfo({pokemonName}) {
 //   })
 
   // 🐨 this will change from "pokemon" to "data"
-  const {data, status, error} = state
+  // const {data, status, error} = state
 
   if (status === 'idle' || !pokemonName) {
     return 'Submit a pokemon'
